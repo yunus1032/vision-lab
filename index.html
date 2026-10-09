@@ -6,7 +6,10 @@
   <title>VisionLab - Client-Side Computer Vision & Gesture Control</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  
+  <!-- MediaPipe Gerekli Scriptler (Eksiksiz Çizim Desteği) -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
   <style>
@@ -14,14 +17,13 @@
       --bg: #090d16;
       --card-bg: #101726;
       --accent: #00f2fe;
-      --accent-alt: #4facfe;
       --success: #00f2a9;
       --border: rgba(255, 255, 255, 0.08);
     }
     body {
       background-color: var(--bg);
       color: #e2e8f0;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'Segoe UI', system-ui, sans-serif;
       min-height: 100vh;
     }
     .card-panel {
@@ -47,14 +49,13 @@
       transform: scaleX(-1);
     }
     .telemetry-code {
-      font-family: 'Courier New', Courier, monospace;
+      font-family: monospace;
       font-size: 11px;
-      line-height: 1.4;
       background: #060a12;
       border-radius: 8px;
       padding: 10px;
       color: #38bdf8;
-      max-height: 140px;
+      max-height: 110px;
       overflow-y: auto;
     }
     .demo-card {
@@ -65,8 +66,8 @@
     }
     .demo-card.active {
       border-color: var(--accent);
-      background: rgba(0, 242, 254, 0.05);
-      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+      background: rgba(0, 242, 254, 0.08);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
     }
     .progress-ring-circle {
       transition: stroke-dashoffset 0.05s linear;
@@ -78,26 +79,23 @@
 <body class="p-3 p-md-4">
 
 <div class="container-fluid max-w-1400">
-  <!-- Üst Başlık -->
   <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-25">
     <div>
       <div class="d-flex align-items-center gap-2">
-        <h4 class="m-0 fw-bold tracking-wide">VisionLab</h4>
+        <h4 class="m-0 fw-bold">VisionLab</h4>
         <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25">Edge AI Prototype</span>
-        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25">Zero-Server Inference</span>
+        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25">Zero-Server</span>
       </div>
-      <p class="text-secondary small m-0 mt-1">Real-time In-Browser Hand Pose Estimation & Spatial UI Triggering via MediaPipe</p>
+      <p class="text-secondary small m-0 mt-1">Tarayıcı Üzerinde Gerçek Zamanlı Computer Vision ve Jest Algılama</p>
     </div>
-    <div class="d-flex align-items-center gap-3">
-      <div class="text-end small">
-        <span class="text-secondary">Latency / Status:</span>
-        <span id="fpsBadge" class="badge bg-success bg-opacity-25 text-success ms-1">Active</span>
-      </div>
+    <div class="text-end small">
+      <span class="text-secondary">Model Durumu:</span>
+      <span id="modelStatus" class="badge bg-warning bg-opacity-25 text-warning ms-1">Yükleniyor...</span>
     </div>
   </header>
 
   <div class="row g-4">
-    <!-- Sol Bölüm: Video, İskelet Çizimi ve Telemetri -->
+    <!-- Sol Panel: Kamera ve Çizim -->
     <div class="col-lg-5">
       <div class="card-panel p-3 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
@@ -116,315 +114,66 @@
           </div>
         </div>
 
-        <!-- Anlık Jest & Metrik Göstergesi -->
+        <!-- Anlık Göstergeler -->
         <div class="row g-2 mb-3">
           <div class="col-6">
             <div class="p-2 bg-dark bg-opacity-50 rounded border border-secondary border-opacity-25">
-              <span class="text-secondary d-block" style="font-size: 10px;">SINIFLANDIRILAN JEST</span>
-              <span id="detectedGesture" class="fw-bold text-info">Searching...</span>
+              <span class="text-secondary d-block" style="font-size: 10px;">ALGILANAN JEST</span>
+              <span id="detectedGesture" class="fw-bold text-info">Bekleniyor...</span>
             </div>
           </div>
           <div class="col-6">
             <div class="p-2 bg-dark bg-opacity-50 rounded border border-secondary border-opacity-25">
-              <span class="text-secondary d-block" style="font-size: 10px;">PINCH MESAFESİ (PX)</span>
+              <span class="text-secondary d-block" style="font-size: 10px;">PINCH MESAFESİ</span>
               <span id="pinchDistance" class="fw-bold text-warning">0.00</span>
             </div>
           </div>
         </div>
 
-        <!-- Landmark Ham Veri Akışı -->
-        <div class="mb-1 d-flex justify-content-between align-items-center">
-          <span class="text-secondary text-uppercase" style="font-size: 10px;">Landmark Telemetri (Tip Coordinates)</span>
-          <span class="text-secondary" style="font-size: 10px;">21 Keypoints</span>
-        </div>
         <div class="telemetry-code" id="telemetryLog">
-          Awaiting tracking vectors...
+          Kamera hazır, el bekleniyor...
         </div>
       </div>
     </div>
 
-    <!-- Sağ Bölüm: Tarayıcı Etkileşim Deneyleri (Showcase) -->
+    <!-- Sağ Panel: Deneyler -->
     <div class="col-lg-7">
-      
-      <!-- Modül 1: Jest ile Kart/Slayt Navigasyonu -->
-      <div class="card-panel p-3 p-md-4 mb-4">
+      <!-- Deney 1: Kart Değiştirme -->
+      <div class="card-panel p-3 p-md-4 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="m-0 fw-bold"><i class="bi bi-layers me-2 text-info"></i>Deney 1: Temassız Kart Gezgini</h6>
-          <span class="text-secondary small">✋ Açık El: İleri | ✊ Yumruk: Geri</span>
+          <h6 class="m-0 fw-bold"><i class="bi bi-layers me-2 text-info"></i>Deney 1: Jestle Kart Gezintisi</h6>
+          <span class="text-secondary small">✋ Açık El: Sonraki | ✊ Yumruk: Önceki</span>
         </div>
-
         <div class="row g-3" id="cardsTrack">
           <div class="col-4">
             <div class="demo-card active p-3 text-center" data-index="0">
               <div class="display-6 mb-2 text-info"><i class="bi bi-cpu"></i></div>
               <div class="fw-bold small">Edge Engine</div>
-              <span class="text-secondary" style="font-size: 11px;">İstemci taraflı çıkarım</span>
+              <span class="text-secondary" style="font-size: 11px;">İstemci taraflı</span>
             </div>
           </div>
           <div class="col-4">
             <div class="demo-card p-3 text-center" data-index="1">
               <div class="display-6 mb-2 text-primary"><i class="bi bi-vector-pen"></i></div>
               <div class="fw-bold small">Geometric Math</div>
-              <span class="text-secondary" style="font-size: 11px;">Öklid mesafesi analizi</span>
+              <span class="text-secondary" style="font-size: 11px;">Koordinat hesabı</span>
             </div>
           </div>
           <div class="col-4">
             <div class="demo-card p-3 text-center" data-index="2">
               <div class="display-6 mb-2 text-success"><i class="bi bi-shield-check"></i></div>
-              <div class="fw-bold small">Zero Data Leak</div>
-              <span class="text-secondary" style="font-size: 11px;">Görüntü sunucuya gitmez</span>
+              <div class="fw-bold small">Zero Leak</div>
+              <span class="text-secondary" style="font-size: 11px;">Gizlilik koruması</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Modül 2: Parmak Mesafesi ile Slider Kontrolü (Pinch-to-Scale) -->
-      <div class="card-panel p-3 p-md-4 mb-4">
+      <!-- Deney 2: Pinch Slider -->
+      <div class="card-panel p-3 p-md-4 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h6 class="m-0 fw-bold"><i class="bi bi-sliders me-2 text-warning"></i>Deney 2: Havadaki Mesafe ile Değer Ayarlama (Pinch)</h6>
+          <h6 class="m-0 fw-bold"><i class="bi bi-sliders me-2 text-warning"></i>Deney 2: Havadaki Mesafe ile Değer Ayarı (Pinch)</h6>
           <span class="text-warning small" id="pinchPct">0%</span>
         </div>
-        <p class="text-secondary small mb-3">Başparmak ile işaret parmağını birbirine yaklaştırıp uzaklaştırarak havadaki mesafeyle çubuğu kontrol edin.</p>
-        
-        <div class="progress bg-dark border border-secondary border-opacity-25" style="height: 18px;">
-          <div id="spatialSlider" class="progress-bar bg-warning" role="progressbar" style="width: 20%; transition: width 0.05s ease;"></div>
-        </div>
-      </div>
-
-      <!-- Modül 3: Tutma/Zaman Tabanlı Onay Kilidi -->
-      <div class="card-panel p-3 p-md-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="m-0 fw-bold"><i class="bi bi-fingerprint me-2 text-success"></i>Deney 3: Zamana Bağlı Tetikleyici (Hold-to-Trigger)</h6>
-          <span class="text-secondary small">👍 Başparmak: 3 saniye sabit tut</span>
-        </div>
-
-        <div class="d-flex align-items-center gap-3 bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-25">
-          <div class="position-relative" style="width: 50px; height: 50px;">
-            <svg width="50" height="50">
-              <circle stroke="#1e293b" stroke-width="4" fill="transparent" r="20" cx="25" cy="25"/>
-              <circle id="progressCircle" class="progress-ring-circle" stroke="#00f2a9" stroke-width="4" stroke-dasharray="125" stroke-dashoffset="125" fill="transparent" r="20" cx="25" cy="25"/>
-            </svg>
-            <i class="bi bi-lock-fill position-absolute top-50 start-50 translate-middle text-secondary" id="lockIcon"></i>
-          </div>
-          <div class="flex-grow-1">
-            <div class="fw-semibold small" id="triggerStateText">Tetik Bekleniyor</div>
-            <div class="text-secondary" style="font-size: 11px;">Yanlış algılamaları önlemek için sabit eşik süresi uygulanır.</div>
-          </div>
-          <div class="fs-4 fw-bold text-success font-monospace" id="countdownTimer">3.0s</div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<script>
-  let activeCardIndex = 0;
-  const cards = document.querySelectorAll('.demo-card');
-  let lastNavTrigger = 0;
-
-  // Onay kilidi ayarları
-  const HOLD_DURATION = 3000;
-  let holdStartTime = null;
-  const progressCircle = document.getElementById('progressCircle');
-  const circumference = 2 * Math.PI * 20; // ~125.6
-  const countdownTimer = document.getElementById('countdownTimer');
-  const triggerStateText = document.getElementById('triggerStateText');
-  const lockIcon = document.getElementById('lockIcon');
-
-  // Video & MediaPipe değişkenleri
-  const videoElement = document.getElementById('webcam');
-  const canvasElement = document.getElementById('output_canvas');
-  const canvasCtx = canvasElement.getContext('2d');
-  const toggleCamBtn = document.getElementById('toggleCamBtn');
-  const camOverlay = document.getElementById('camOverlay');
-  let camera = null;
-  let isCameraOn = true;
-
-  // Kart Değiştirme
-  function setCard(idx) {
-    if (idx < 0) idx = cards.length - 1;
-    if (idx >= cards.length) idx = 0;
-    cards.forEach(c => c.classList.remove('active'));
-    cards[idx].classList.add('active');
-    activeCardIndex = idx;
-  }
-
-  // Öklid Mesafesi Hesabı (Pinch)
-  function calcDistance(p1, p2) {
-    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
-  }
-
-  // Landmark Analizi ve Jest Çıkarımı
-  function classifyGesture(landmarks) {
-    const thumbTip = landmarks[4], thumbIp = landmarks[3], thumbMcp = landmarks[2];
-    const indexTip = landmarks[8], indexPip = landmarks[6];
-    const middleTip = landmarks[12], middlePip = landmarks[10];
-    const ringTip = landmarks[16], ringPip = landmarks[14];
-    const pinkyTip = landmarks[20], pinkyPip = landmarks[18];
-
-    const isIndexClosed = indexTip.y > indexPip.y;
-    const isMiddleClosed = middleTip.y > middlePip.y;
-    const isRingClosed = ringTip.y > ringPip.y;
-    const isPinkyClosed = pinkyTip.y > pinkyPip.y;
-    const allFingersClosed = isIndexClosed && isMiddleClosed && isRingClosed && isPinkyClosed;
-
-    const isIndexOpen = indexTip.y < indexPip.y;
-    const isMiddleOpen = middleTip.y < middlePip.y;
-    const isRingOpen = ringTip.y < ringPip.y;
-    const isPinkyOpen = pinkyTip.y < pinkyPip.y;
-
-    // 1. Thumbs Up (Sadece başparmak açık, diğerleri kapalı)
-    if (thumbTip.y < thumbIp.y && thumbIp.y < thumbMcp.y && allFingersClosed) {
-      return "THUMBS_UP";
-    }
-
-    // 2. Open Palm (Tüm parmaklar açık)
-    if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
-      return "OPEN_PALM";
-    }
-
-    // 3. Fist (Tüm parmaklar kapalı)
-    if (allFingersClosed) {
-      return "FIST";
-    }
-
-    return "ACTIVE_TRACKING";
-  }
-
-  function setLockProgress(percent, remainingSec) {
-    const offset = circumference - (percent / 100) * circumference;
-    progressCircle.style.strokeDashoffset = offset;
-    countdownTimer.innerText = `${remainingSec.toFixed(1)}s`;
-  }
-
-  function onResults(results) {
-    if (!isCameraOn) return;
-
-    canvasElement.width = videoElement.videoWidth;
-    canvasElement.height = videoElement.videoHeight;
-    canvasCtx.save();
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-      const landmarks = results.multiHandLandmarks[0];
-
-      // İskelet Çizimi
-      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00f2fe', lineWidth: 2});
-      drawLandmarks(canvasCtx, landmarks, {color: '#00f2a9', lineWidth: 1, radius: 3});
-
-      // Jest Tespiti
-      const gesture = classifyGesture(landmarks);
-      document.getElementById('detectedGesture').innerText = gesture;
-      const now = Date.now();
-
-      // Deney 1: Kart Değiştirme (Açık el / Yumruk)
-      if (now - lastNavTrigger > 700) {
-        if (gesture === "OPEN_PALM") {
-          setCard(activeCardIndex + 1);
-          lastNavTrigger = now;
-        } else if (gesture === "FIST") {
-          setCard(activeCardIndex - 1);
-          lastNavTrigger = now;
-        }
-      }
-
-      // Deney 2: Pinch Mesafesi ile Slider Kontrolü
-      const thumbTip = landmarks[4];
-      const indexTip = landmarks[8];
-      const dist = calcDistance(thumbTip, indexTip);
-      document.getElementById('pinchDistance').innerText = dist.toFixed(3);
-
-      // Normalizasyon: 0.03 - 0.25 aralığını 0-100% yap
-      let pct = Math.round(((dist - 0.03) / (0.22 - 0.03)) * 100);
-      pct = Math.max(0, Math.min(100, pct));
-      document.getElementById('spatialSlider').style.width = `${pct}%`;
-      document.getElementById('pinchPct').innerText = `${pct}%`;
-
-      // Deney 3: Hold-to-Trigger (Zamana bağlı kilit)
-      if (gesture === "THUMBS_UP") {
-        if (!holdStartTime) holdStartTime = now;
-        const elapsed = now - holdStartTime;
-        const progress = Math.min((elapsed / HOLD_DURATION) * 100, 100);
-        const remaining = Math.max((HOLD_DURATION - elapsed) / 1000, 0);
-
-        setLockProgress(progress, remaining);
-        triggerStateText.innerText = "Doğrulanıyor...";
-
-        if (elapsed >= HOLD_DURATION) {
-          triggerStateText.innerText = "Kilit Açıldı! (Action Fired)";
-          lockIcon.className = "bi bi-unlock-fill position-absolute top-50 start-50 translate-middle text-success";
-        }
-      } else {
-        holdStartTime = null;
-        setLockProgress(0, 3.0);
-        triggerStateText.innerText = "Tetik Bekleniyor";
-        lockIcon.className = "bi bi-lock-fill position-absolute top-50 start-50 translate-middle text-secondary";
-      }
-
-      // Telemetri Log Çıktısı
-      document.getElementById('telemetryLog').innerHTML = `
-        Wrist: [${landmarks[0].x.toFixed(2)}, ${landmarks[0].y.toFixed(2)}]<br>
-        ThumbTip: [${thumbTip.x.toFixed(2)}, ${thumbTip.y.toFixed(2)}]<br>
-        IndexTip: [${indexTip.x.toFixed(2)}, ${indexTip.y.toFixed(2)}]<br>
-        MiddleTip: [${landmarks[12].x.toFixed(2)}, ${landmarks[12].y.toFixed(2)}]
-      `;
-
-    } else {
-      document.getElementById('detectedGesture').innerText = "Searching...";
-      document.getElementById('telemetryLog').innerText = "No hand vector in frame.";
-      holdStartTime = null;
-      setLockProgress(0, 3.0);
-    }
-
-    canvasCtx.restore();
-  }
-
-  // MediaPipe Hands Yapılandırması
-  const hands = new Hands({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-  });
-
-  hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 1,
-    minDetectionConfidence: 0.65,
-    minTrackingConfidence: 0.65
-  });
-
-  hands.onResults(onResults);
-
-  camera = new Camera(videoElement, {
-    onFrame: async () => {
-      if (isCameraOn) await hands.send({ image: videoElement });
-    },
-    width: 640,
-    height: 480
-  });
-
-  camera.start();
-
-  // Kamera Aç / Kapat Butonu
-  toggleCamBtn.addEventListener('click', () => {
-    isCameraOn = !isCameraOn;
-    if (!isCameraOn) {
-      if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(t => t.stop());
-      }
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      camOverlay.classList.remove('d-none');
-      toggleCamBtn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Kamerayı Başlat';
-      document.getElementById('detectedGesture').innerText = "Paused";
-      document.getElementById('fpsBadge').innerText = "Standby";
-      document.getElementById('fpsBadge').className = "badge bg-secondary bg-opacity-25 text-secondary ms-1";
-    } else {
-      camOverlay.classList.add('d-none');
-      toggleCamBtn.innerHTML = '<i class="bi bi-pause-fill me-1"></i>Kamerayı Durdur';
-      document.getElementById('fpsBadge').innerText = "Active";
-      document.getElementById('fpsBadge').className = "badge bg-success bg-opacity-25 text-success ms-1";
-      camera.start();
-    }
-  });
-</script>
-</body>
-</html>
+        <p class="text-secondary small mb-3">Başparmak ile işaret parmağını birbirine yaklaştırıp uzaklaştırın.</p>
+        <div class="progress bg-dark border border-secondary border-opacity-25"
