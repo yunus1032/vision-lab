@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SilentBank | Erişilebilir Temassız Finans Paneli</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- MediaPipe Hands & Camera Utils CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --accent-blue: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --text-muted-custom: #94a3b8;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: #f8fafc;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .fintech-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      transition: all 0.25s ease-in-out;
+    }
+
+    .fintech-card:hover {
+      border-color: #475569;
+    }
+
+    /* Video feed and Canvas Overlay */
+    .vision-container {
+      position: relative;
+      width: 100%;
+      height: 330px;
+      background: #020617;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+
+    #webcamVideo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Mirror camera */
+    }
+
+    #outputCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform: scaleX(-1);
+      pointer-events: none;
+    }
+
+    /* Live detection badges */
+    .hud-badge {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+    }
+
+    .hud-top-left { top: 12px; left: 12px; }
+    .hud-bottom-right { bottom: 12px; right: 12px; }
+
+    /* Action selection card active indicator */
+    .transfer-option {
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .transfer-option:hover {
+      transform: translateY(-2px);
+      background-color: #273549;
+    }
+
+    .transfer-option.active-selection {
+      border-color: var(--accent-blue);
+      background: rgba(56, 189, 248, 0.12) !important;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+    }
+
+    /* Circular countdown ring for thumbs up holding */
+    .progress-ring-circle {
+      transition: stroke-dashoffset 0.1s linear;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Pulse dot */
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .gesture-pill {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body class="p-3 p-md-4">
+
+<div class="container-fluid max-w-7xl">
+  <!-- Header Bar -->
+  <header class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-4 border-bottom border-secondary border-opacity-25">
+    <div class="d-flex align-items-center gap-3">
+      <div class="p-2 rounded-3 bg-primary bg-opacity-25 text-info">
+        <i class="bi bi-fingerprint fs-3"></i>
+      </div>
+      <div>
+        <div class="d-flex align-items-center gap-2">
+          <h1 class="h4 mb-0 fw-bold tracking-tight">SilentBank AI</h1>
+          <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1">
+            <span class="pulse-dot bg-success me-1"></span> Client-Side Edge AI
+          </span>
+        </div>
+        <p class="text-secondary small mb-0">İşitme ve Konuşma Engelliler İçin Temassız Jest Kontrollü Finans Arayüzü</p>
+      </div>
+    </div>
+    
+    <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+      <div class="text-end d-none d-sm-block">
+        <div class="small fw-semibold">Ali Yılmaz</div>
+        <div class="text-muted-custom" style="font-size: 0.75rem;">TR32 0006 2000 1234 5678 0001</div>
+      </div>
+      <div class="rounded-circle bg-secondary bg-opacity-25 p-2 px-3 border border-secondary border-opacity-50">
+        <i class="bi bi-person text-light fs-5"></i>
+      </div>
+    </div>
+  </header>
+
+  <div class="row g-4">
+    <!-- LEFT PANEL: Camera & Vision System -->
+    <div class="col-lg-5 col-xl-5">
+      <div class="fintech-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between">
+        <div>
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h6 mb-0 fw-semibold d-flex align-items-center gap-2">
+              <i class="bi bi-camera-video text-info"></i> Gerçek Zamanlı Jest Sensörü
+            </h2>
+            <div id="aiEngineStatus" class="badge bg-secondary bg-opacity-50 text-light fw-normal">
+              Model Yükleniyor...
+            </div>
+          </div>
+
+          <!-- Video & Canvas Overlay -->
+          <div class="vision-container mb-3">
+            <video id="webcamVideo" autoplay playsinline muted></video>
+            <canvas id="outputCanvas"></canvas>
+
+            <!-- Top Left HUD: Active Gesture -->
+            <div class="hud-badge hud-top-left">
+              <span class="text-secondary small d-block">Algılanan Jest</span>
+              <span id="detectedGestureText" class="fw-bold text-info">El Aranıyor...</span>
+            </div>
+
+            <!-- Bottom Right HUD: Hand Confidence -->
+            <div class="hud-badge hud-bottom-right">
+              <span class="text-secondary small d-block">Model Güveni</span>
+              <span id="detectionConfidence" class="fw-semibold text-warning">0%</span>
+            </div>
+          </div>
+
+          <!-- Gesture Confirmation Progress Trigger -->
+          <div id="holdConfirmBox" class="p-3 mb-3 rounded-3 bg-dark border border-secondary border-opacity-50 d-flex align-items-center justify-content-between" style="min-height: 74px;">
+            <div class="d-flex align-items-center gap-3">
+              <!-- SVG Circular Progress Bar -->
+              <svg width="44" height="44" viewBox="0 0 44 44">
+                <circle stroke="#334155" stroke-width="4" fill="transparent" r="18" cx="22" cy="22"/>
+                <circle id="progressCircle" class="progress-ring-circle" stroke="#10b981" stroke-width="4" stroke-dasharray="113.09" stroke-dashoffset="113.09" stroke-linecap="round" fill="transparent" r="18" cx="22" cy="22"/>
+              </svg>
+              <div>
+                <div class="small fw-semibold" id="confirmPromptTitle">Onay Bekleniyor</div>
+                <div class="text-muted-custom" style="font-size: 0.76rem;" id="confirmPromptDesc">👍 Başparmağınızı kaldırıp 2 sn sabit tutun</div>
+              </div>
+            </div>
+            <span id="holdTimerSeconds" class="fs-5 fw-bold text-emerald text-success">0.0s</span>
+          </div>
+
+          <!-- Quick Gesture Legend -->
+          <div class="mb-3">
+            <h3 class="text-muted-custom fw-semibold mb-2" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Jest Kılavuzu</h3>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="gesture-pill d-flex align-items-center gap-2">
+                  <span class="fs-5">🖐️</span>
+                  <div>
+                    <div class="fw-semibold">Açık El</div>
+                    <div class="text-secondary" style="font-size: 0.72rem;">Listeyi Gez</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="gesture-pill d-flex align-items-center gap-2">
+                  <span class="fs-5">☝️</span>
+                  <div>
+                    <div class="fw-semibold">İşaret Parmağı</div>
+                    <div class="text-secondary" style="font-size: 0.72rem;">İşlemi Seç</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="gesture-pill d-flex align-items-center gap-2">
+                  <span class="fs-5">👍</span>
+                  <div>
+                    <div class="fw-semibold">Başparmak Yukarı</div>
+                    <div class="text-secondary" style="font-size: 0.72rem;">2sn Tut = Onayla</div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="gesture-pill d-flex align-items-center gap-2">
+                  <span class="fs-5">✊</span>
+                  <div>
+                    <div class="fw-semibold">Yumruk</div>
+                    <div class="text-secondary" style="font-size: 0.72rem;">İptal / Sıfırla</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulation fallback buttons -->
+        <div class="pt-2 border-top border-secondary border-opacity-25">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted-custom" style="font-size: 0.76rem;">Kamera yoksa veya test için:</span>
+            <button id="toggleCameraBtn" class="btn btn-sm btn-outline-info py-0 px-2" style="font-size: 0.75rem;">
+              <i class="bi bi-camera"></i> Kamerayı Başlat
+            </button>
+          </div>
+          <div class="btn-group w-100" role="group">
+            <button type="button" class="btn btn-sm btn-outline-secondary text-light" onclick="simulateGesture('OPEN_PALM')">🖐️ Gez</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary text-light" onclick="simulateGesture('INDEX_POINT')">☝️ Seç</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="simulateGesture('THUMBS_UP')">👍 Onayla</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="simulateGesture('FIST')">✊ Sıfırla</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Banking Dashboard -->
+    <div class="col-lg-7 col-xl-7">
+      <div class="d-flex flex-column gap-4">
+        
+        <!-- Balance Card -->
+        <div class="fintech-card p-4 position-relative overflow-hidden" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+          <div class="row align-items-center">
+            <div class="col-md-7">
+              <span class="text-secondary small text-uppercase tracking-wider">Kullanılabilir Bakiye</span>
+              <div class="d-flex align-items-baseline gap-2 mt-1">
+                <span id="accountBalanceDisplay" class="display-6 fw-bold text-white">48.250,00</span>
+                <span class="fs-5 text-info fw-semibold">TL</span>
+              </div>
+              <div class="d-flex align-items-center gap-3 mt-3 text-secondary small">
+                <span><i class="bi bi-shield-check text-success"></i> KVKK & BDDK Uyumlu Edge AI</span>
+                <span>•</span>
+                <span>Vadeli / Vadesiz Ana Hesap</span>
+              </div>
+            </div>
+            <div class="col-md-5 text-md-end mt-3 mt-md-0">
+              <span class="badge bg-primary bg-opacity-20 text-info border border-info border-opacity-25 px-3 py-2 rounded-3">
+                <i class="bi bi-wallet2 me-1"></i> Aktif Kart: Silent Gold
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gesture-Controlled Transfer Options -->
+        <div class="fintech-card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h6 mb-0 fw-semibold">Hızlı Transfer İşlemleri</h2>
+              <span class="text-secondary" style="font-size: 0.78rem;">Seçmek için işaret parmağınızı ☝️ kaldırın veya açık el 🖐️ ile ilerleyin</span>
+            </div>
+            <span id="activeSelectionBadge" class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
+              1. Seçenek Odakta
+            </span>
+          </div>
+
+          <div class="row g-3" id="transferOptionsContainer">
+            <!-- Option 1 -->
+            <div class="col-md-4">
+              <div class="transfer-option fintech-card p-3 h-100 active-selection" data-index="0" data-name="Ev Kirası" data-amount="15000" data-recipient="Ahmet Güler">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div class="p-2 rounded-3 bg-primary bg-opacity-25 text-info">
+                    <i class="bi bi-house-door fs-5"></i>
+                  </div>
+                  <span class="badge bg-secondary text-secondary-emphasis" style="font-size: 0.7rem;">Kira</span>
+                </div>
+                <div class="fw-bold mb-1">Ev Kirası</div>
+                <div class="text-secondary small mb-2">Ahmet Güler</div>
+                <div class="text-info fw-bold">15.000 TL</div>
+              </div>
+            </div>
+
+            <!-- Option 2 -->
+            <div class="col-md-4">
+              <div class="transfer-option fintech-card p-3 h-100" data-index="1" data-name="Kardeş Harçlığı" data-amount="2500" data-recipient="Zeynep Yılmaz">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div class="p-2 rounded-3 bg-success bg-opacity-25 text-success">
+                    <i class="bi bi-person-heart fs-5"></i>
+                  </div>
+                  <span class="badge bg-secondary text-secondary-emphasis" style="font-size: 0.7rem;">Aile</span>
+                </div>
+                <div class="fw-bold mb-1">Kardeş Harçlığı</div>
+                <div class="text-secondary small mb-2">Zeynep Yılmaz</div>
+                <div class="text-success fw-bold">2.500 TL</div>
+              </div>
+            </div>
+
+            <!-- Option 3 -->
+            <div class="col-md-4">
+              <div class="transfer-option fintech-card p-3 h-100" data-index="2" data-name="Fiber İnternet Faturası" data-amount="450" data-recipient="Turkcell Superonline">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div class="p-2 rounded-3 bg-warning bg-opacity-25 text-warning">
+                    <i class="bi bi-router fs-5"></i>
+                  </div>
+                  <span class="badge bg-secondary text-secondary-emphasis" style="font-size: 0.7rem;">Fatura</span>
+                </div>
+                <div class="fw-bold mb-1">İnternet Faturası</div>
+                <div class="text-secondary small mb-2">Superonline</div>
+                <div class="text-warning fw-bold">450 TL</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Transactions History -->
+        <div class="fintech-card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h6 mb-0 fw-semibold">Son Hesap Hareketleri</h2>
+            <span class="text-secondary" style="font-size: 0.78rem;">Otomatik güncellenir</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle mb-0" style="background: transparent;">
+              <thead>
+                <tr class="text-secondary" style="font-size: 0.78rem; border-color: #334155;">
+                  <th scope="col">İŞLEM / ALICI</th>
+                  <th scope="col">TARİH</th>
+                  <th scope="col">DURUM</th>
+                  <th scope="col" class="text-end">TUTAR</th>
+                </tr>
+              </thead>
+              <tbody id="transactionTableBody">
+                <tr style="border-color: #334155;">
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-cart3 text-warning"></i>
+                      <span>Market Alışverişi - Migros</span>
+                    </div>
+                  </td>
+                  <td class="text-secondary small">Bugün, 14:20</td>
+                  <td><span class="badge bg-success bg-opacity-25 text-success">Tamamlandı</span></td>
+                  <td class="text-end fw-semibold text-danger">-780,50 TL</td>
+                </tr>
+                <tr style="border-color: #334155;">
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-arrow-down-left text-success"></i>
+                      <span>Maaş Ödemesi</span>
+                    </div>
+                  </td>
+                  <td class="text-secondary small">Dün, 09:00</td>
+                  <td><span class="badge bg-success bg-opacity-25 text-success">Tamamlandı</span></td>
+                  <td class="text-end fw-semibold text-success">+55.000,00 TL</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="receiptModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content fintech-card text-light border-secondary">
+      <div class="modal-body p-4 text-center">
+        <div class="mx-auto mb-3 rounded-circle bg-success bg-opacity-25 text-success d-flex align-items-center justify-content-center" style="width: 68px; height: 68px;">
+          <i class="bi bi-check-circle-fill fs-2"></i>
+        </div>
+        <h3 class="h5 fw-bold mb-1">Transfer Başarıyla Gerçekleşti</h3>
+        <p class="text-secondary small mb-4">Jest biyometrisi onaylandı. İşlem dekontunuz oluşturuldu.</p>
+
+        <div class="p-3 rounded-3 bg-dark text-start mb-4 border border-secondary border-opacity-50">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-secondary small">Alıcı:</span>
+            <span class="fw-semibold small" id="receiptRecipient">-</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-secondary small">İşlem Adı:</span>
+            <span class="fw-semibold small" id="receiptName">-</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-secondary small">Gönderilen Tutar:</span>
+            <span class="fw-bold text-success small" id="receiptAmount">-</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span class="text-secondary small">Referans Kodu:</span>
+            <span class="text-secondary font-monospace small" id="receiptRef">REF-928374</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-info w-100 fw-semibold" data-bs-dismiss="modal">
+          Anladım (Kapat)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bootstrap Bundle JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  /* ----------------------------------------------------
+   * Application State & Mock Financial Data
+   * ---------------------------------------------------- */
+  let currentBalance = 48250.00;
+  let activeCardIndex = 0;
+  const optionsCount = 3;
+
+  let currentGesture = "NONE";
+  let lastCycleTime = 0;
+  let thumbsUpStartTime = null;
+  const THUMBS_HOLD_DURATION_MS = 1800; // Hold thumbs up for ~1.8 seconds to trigger
+
+  let cameraInstance = null;
+  let isCameraActive = false;
+
+  const videoElement = document.getElementById('webcamVideo');
+  const canvasElement = document.getElementById('outputCanvas');
+  const canvasCtx = canvasElement.getContext('2d');
+  const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+
+  /* UI Element References */
+  const detectedGestureText = document.getElementById('detectedGestureText');
+  const detectionConfidence = document.getElementById('detectionConfidence');
+  const aiEngineStatus = document.getElementById('aiEngineStatus');
+  const progressCircle = document.getElementById('progressCircle');
+  const holdTimerSeconds = document.getElementById('holdTimerSeconds');
+  const activeSelectionBadge = document.getElementById('activeSelectionBadge');
+  const accountBalanceDisplay = document.getElementById('accountBalanceDisplay');
+  const toggleCameraBtn = document.getElementById('toggleCameraBtn');
+
+  const circleCircumference = 2 * Math.PI * 18; // r=18 => ~113.09
+
+  /* ----------------------------------------------------
+   * Formatters and Helpers
+   * ---------------------------------------------------- */
+  function formatMoney(amount) {
+    return amount.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function setActiveCard(index) {
+    activeCardIndex = (index + optionsCount) % optionsCount;
+    const cards = document.querySelectorAll('.transfer-option');
+    cards.forEach((card, idx) => {
+      if (idx === activeCardIndex) {
+        card.classList.add('active-selection');
+      } else {
+        card.classList.remove('active-selection');
+      }
+    });
+    activeSelectionBadge.innerText = `${activeCardIndex + 1}. Seçenek Odakta`;
+  }
+
+  /* ----------------------------------------------------
+   * Gesture Heuristics (Hand Landmark Geometric Rules)
+   * ---------------------------------------------------- */
+  function classifyHandGesture(landmarks) {
+    // 0 = Wrist
+    // 4 = Thumb tip, 3 = Thumb IP, 2 = Thumb MCP
+    // 8 = Index tip, 6 = Index PIP
+    // 12 = Middle tip, 10 = Middle PIP
+    // 16 = Ring tip, 14 = Ring PIP
+    // 20 = Pinky tip, 18 = Pinky PIP
+
+    const isIndexExtended = landmarks[8].y < landmarks[6].y;
+    const isMiddleExtended = landmarks[12].y < landmarks[10].y;
+    const isRingExtended = landmarks[16].y < landmarks[14].y;
+    const isPinkyExtended = landmarks[20].y < landmarks[18].y;
+
+    // Thumb extended upwards relative to its lower joint
+    const isThumbUp = (landmarks[4].y < landmarks[3].y) && (landmarks[3].y < landmarks[2].y);
+    // Thumb tucked in
+    const isThumbTucked = landmarks[4].y > landmarks[3].y;
+
+    // Fist: all fingers curled down
+    if (!isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
+      if (isThumbUp) {
+        return "THUMBS_UP";
+      }
+      return "FIST";
+    }
+
+    // Open Palm: all fingers raised
+    if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
+      return "OPEN_PALM";
+    }
+
+    // Index Pointing: Only index finger raised
+    if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
+      return "INDEX_POINT";
+    }
+
+    return "UNKNOWN";
+  }
+
+  /* ----------------------------------------------------
+   * State Machine reacting to detected gestures
+   * ---------------------------------------------------- */
+  function processGestureAction(gesture) {
+    const now = Date.now();
+    currentGesture = gesture;
+
+    // Update Live Indicator
+    switch (gesture) {
+      case "OPEN_PALM":
+        detectedGestureText.innerText = "🖐️ Açık El (Gezinme)";
+        detectedGestureText.className = "fw-bold text-info";
+        resetHoldProgress();
+        // Cycle active item once every 900ms when open palm is held
+        if (now - lastCycleTime > 900) {
+          setActiveCard(activeCardIndex + 1);
+          lastCycleTime = now;
+        }
+        break;
+
+      case "INDEX_POINT":
+        detectedGestureText.innerText = "☝️ İşaret Parmağı (Seçildi)";
+        detectedGestureText.className = "fw-bold text-warning";
+        resetHoldProgress();
+        break;
+
+      case "THUMBS_UP":
+        detectedGestureText.innerText = "👍 Başparmak (Onaylanıyor)";
+        detectedGestureText.className = "fw-bold text-success";
+        handleHoldConfirmation(now);
+        break;
+
+      case "FIST":
+        detectedGestureText.innerText = "✊ Yumruk (Sıfırlandı)";
+        detectedGestureText.className = "fw-bold text-danger";
+        resetHoldProgress();
+        break;
+
+      default:
+        detectedGestureText.innerText = "El Takip Ediliyor...";
+        detectedGestureText.className = "fw-bold text-secondary";
+        resetHoldProgress();
+        break;
+    }
+  }
+
+  function handleHoldConfirmation(now) {
+    if (!thumbsUpStartTime) {
+      thumbsUpStartTime = now;
+    }
+
+    const elapsed = now - thumbsUpStartTime;
+    const progressRatio = Math.min(elapsed / THUMBS_HOLD_DURATION_MS, 1.0);
+    const strokeOffset = circleCircumference * (1 - progressRatio);
+
+    progressCircle.style.strokeDashoffset = strokeOffset;
+    holdTimerSeconds.innerText = `${(elapsed / 1000).toFixed(1)}s`;
+
+    if (progressRatio >= 1.0) {
+      executeActiveTransaction();
+      resetHoldProgress();
+      // Block repeated triggers until release
+      thumbsUpStartTime = now + 1500;
+    }
+  }
+
+  function resetHoldProgress() {
+    thumbsUpStartTime = null;
+    progressCircle.style.strokeDashoffset = circleCircumference;
+    holdTimerSeconds.innerText = "0.0s";
+  }
+
+  /* ----------------------------------------------------
+   * Financial Transaction Execution
+   * ---------------------------------------------------- */
+  function executeActiveTransaction() {
+    const activeCard = document.querySelector(`.transfer-option[data-index="${activeCardIndex}"]`);
+    if (!activeCard) return;
+
+    const name = activeCard.getAttribute('data-name');
+    const amount = parseFloat(activeCard.getAttribute('data-amount'));
+    const recipient = activeCard.getAttribute('data-recipient');
+
+    if (currentBalance < amount) {
+      alert("Yetersiz Bakiye!");
+      return;
+    }
+
+    // Deduct Balance
+    currentBalance -= amount;
+    accountBalanceDisplay.innerText = formatMoney(currentBalance);
+
+    // Populate Receipt Modal
+    document.getElementById('receiptRecipient').innerText = recipient;
+    document.getElementById('receiptName').innerText = name;
+    document.getElementById('receiptAmount').innerText = `-${formatMoney(amount)} TL`;
+    document.getElementById('receiptRef').innerText = `SB-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // Append to Transaction History Table
+    const tableBody = document.getElementById('transactionTableBody');
+    const newRow = document.createElement('tr');
+    newRow.style.borderColor = '#334155';
+    newRow.innerHTML = `
+      <td>
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-hand-index-thumb text-info"></i>
+          <span>${name} - ${recipient}</span>
+        </div>
+      </td>
+      <td class="text-secondary small">Az önce</td>
+      <td><span class="badge bg-success bg-opacity-25 text-success">Tamamlandı</span></td>
+      <td class="text-end fw-semibold text-danger">-${formatMoney(amount)} TL</td>
+    `;
+    tableBody.insertBefore(newRow, tableBody.firstChild);
+
+    // Show celebratory modal
+    receiptModal.show();
+  }
+
+  /* ----------------------------------------------------
+   * MediaPipe Hand Tracking Setup
+   * ---------------------------------------------------- */
+  const hands = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.6,
+    minTrackingConfidence: 0.5
+  });
+
+  hands.onResults((results) => {
+    // Resize internal canvas buffer to match client rendering
+    if (canvasElement.width !== videoElement.videoWidth && videoElement.videoWidth > 0) {
+      canvasElement.width = videoElement.videoWidth;
+      canvasElement.height = videoElement.videoHeight;
+    }
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+      const landmarks = results.multiHandLandmarks[0];
+      const score = (results.multiHandedness[0]?.score || 0.85) * 100;
+      detectionConfidence.innerText = `${Math.round(score)}%`;
+
+      // Draw hand skeleton on canvas
+      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#38bdf8', lineWidth: 3 });
+      drawLandmarks(canvasCtx, landmarks, { color: '#10b981', lineWidth: 1, radius: 4 });
+
+      // Classify and handle
+      const gesture = classifyHandGesture(landmarks);
+      processGestureAction(gesture);
+    } else {
+      detectionConfidence.innerText = "0%";
+      processGestureAction("NONE");
+    }
+    canvasCtx.restore();
+  });
+
+  /* ----------------------------------------------------
+   * Camera Controller & Fallback Simulation Trigger
+   * ---------------------------------------------------- */
+  async function initCamera() {
+    try {
+      aiEngineStatus.innerText = "Kamera Başlatılıyor...";
+      aiEngineStatus.className = "badge bg-warning bg-opacity-25 text-warning fw-normal";
+
+      cameraInstance = new Camera(videoElement, {
+        onFrame: async () => {
+          await hands.send({ image: videoElement });
+        },
+        width: 640,
+        height: 480
+      });
+
+      await cameraInstance.start();
+      isCameraActive = true;
+      aiEngineStatus.innerText = "Sensör Aktif (60 FPS)";
+      aiEngineStatus.className = "badge bg-success bg-opacity-25 text-success fw-normal";
+      toggleCameraBtn.innerHTML = `<i class="bi bi-camera-fill"></i> Kamera Açık`;
+      toggleCameraBtn.classList.replace('btn-outline-info', 'btn-info');
+    } catch (err) {
+      console.warn("Camera could not be accessed directly:", err);
+      aiEngineStatus.innerText = "Simülasyon Modu";
+      aiEngineStatus.className = "badge bg-secondary bg-opacity-50 text-light fw-normal";
+    }
+  }
+
+  toggleCameraBtn.addEventListener('click', () => {
+    if (!isCameraActive) {
+      initCamera();
+    }
+  });
+
+  // Manual gesture trigger for testing without camera
+  window.simulateGesture = function(gestureType) {
+    detectionConfidence.innerText = "99% (Sim)";
+    if (gestureType === 'THUMBS_UP') {
+      processGestureAction('THUMBS_UP');
+      // Instant execution simulation after 1.8s
+      let simElapsed = 0;
+      const interval = setInterval(() => {
+        simElapsed += 200;
+        const ratio = simElapsed / THUMBS_HOLD_DURATION_MS;
+        progressCircle.style.strokeDashoffset = circleCircumference * (1 - Math.min(ratio, 1));
+        holdTimerSeconds.innerText = `${(simElapsed / 1000).toFixed(1)}s`;
+        if (simElapsed >= THUMBS_HOLD_DURATION_MS) {
+          clearInterval(interval);
+          executeActiveTransaction();
+          resetHoldProgress();
+        }
+      }, 200);
+    } else {
+      processGestureAction(gestureType);
+    }
+  };
+
+  // Card click event listeners for desktop interaction
+  document.querySelectorAll('.transfer-option').forEach(card => {
+    card.addEventListener('click', () => {
+      setActiveCard(parseInt(card.getAttribute('data-index')));
+    });
+  });
+
+  // Try auto-starting camera on user-action ready state
+  window.addEventListener('DOMContentLoaded', () => {
+    resetHoldProgress();
+  });
+</script>
+</body>
+</html>
