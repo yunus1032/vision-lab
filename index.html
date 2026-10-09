@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SilentBank AI - Erişilebilir Finans Arayüzü</title>
+  <title>VisionLab - Client-Side Computer Vision & Gesture Control</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -11,32 +11,31 @@
 
   <style>
     :root {
-      --bg-dark: #0b1329;
-      --card-bg: #132247;
-      --card-hover: #1b2f61;
-      --primary-cyan: #00d2ff;
-      --accent-green: #00f2a9;
-      --text-muted: #8fa0c7;
+      --bg: #090d16;
+      --card-bg: #101726;
+      --accent: #00f2fe;
+      --accent-alt: #4facfe;
+      --success: #00f2a9;
+      --border: rgba(255, 255, 255, 0.08);
     }
     body {
-      background-color: var(--bg-dark);
-      color: #ffffff;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       min-height: 100vh;
-      overflow-x: hidden;
     }
-    .card-custom {
-      background-color: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
+    .card-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
     }
-    .video-container {
+    .video-viewport {
       position: relative;
       width: 100%;
-      height: 250px;
-      border-radius: 12px;
+      height: 320px;
+      border-radius: 10px;
       overflow: hidden;
-      background: #060b18;
+      background: #030712;
     }
     video, canvas {
       position: absolute;
@@ -47,22 +46,30 @@
       object-fit: cover;
       transform: scaleX(-1);
     }
-    .action-card {
-      background-color: var(--card-bg);
-      border: 2px solid transparent;
-      border-radius: 14px;
-      padding: 16px;
-      cursor: pointer;
-      transition: all 0.25s ease;
+    .telemetry-code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      background: #060a12;
+      border-radius: 8px;
+      padding: 10px;
+      color: #38bdf8;
+      max-height: 140px;
+      overflow-y: auto;
     }
-    .action-card.active-focus {
-      border-color: var(--primary-cyan);
-      box-shadow: 0 0 18px rgba(0, 210, 255, 0.35);
-      background-color: var(--card-hover);
-      transform: translateY(-2px);
+    .demo-card {
+      border: 2px solid transparent;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.2s ease;
+    }
+    .demo-card.active {
+      border-color: var(--accent);
+      background: rgba(0, 242, 254, 0.05);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
     }
     .progress-ring-circle {
-      transition: stroke-dashoffset 0.1s linear;
+      transition: stroke-dashoffset 0.05s linear;
       transform: rotate(-90deg);
       transform-origin: 50% 50%;
     }
@@ -71,35 +78,36 @@
 <body class="p-3 p-md-4">
 
 <div class="container-fluid max-w-1400">
-  <!-- Üst Bar -->
+  <!-- Üst Başlık -->
   <header class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom border-secondary border-opacity-25">
-    <div class="d-flex align-items-center gap-3">
-      <div class="p-2 rounded-3 bg-primary bg-opacity-25 text-info fs-3">
-        <i class="bi bi-fingerprint"></i>
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h4 class="m-0 fw-bold tracking-wide">VisionLab</h4>
+        <span class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25">Edge AI Prototype</span>
+        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25">Zero-Server Inference</span>
       </div>
-      <div>
-        <h4 class="m-0 fw-bold">SilentBank AI <span class="badge bg-success bg-opacity-25 text-success fs-6 border border-success border-opacity-25 ms-2">Client-Side Edge AI</span></h4>
-        <small class="text-secondary">İşitme ve Konuşma Engelliler İçin Temassız Jest Kontrollü Bankacılık</small>
-      </div>
+      <p class="text-secondary small m-0 mt-1">Real-time In-Browser Hand Pose Estimation & Spatial UI Triggering via MediaPipe</p>
     </div>
-    <div class="text-end d-none d-sm-block">
-      <div class="fw-semibold">Ali Yılmaz</div>
-      <small class="text-secondary">TR32 0006 2000 1234 5678 0001</small>
+    <div class="d-flex align-items-center gap-3">
+      <div class="text-end small">
+        <span class="text-secondary">Latency / Status:</span>
+        <span id="fpsBadge" class="badge bg-success bg-opacity-25 text-success ms-1">Active</span>
+      </div>
     </div>
   </header>
 
   <div class="row g-4">
-    <!-- Sol Panel: Kamera ve Algılama -->
-    <div class="col-lg-4">
-      <div class="card-custom p-3 mb-3">
+    <!-- Sol Bölüm: Video, İskelet Çizimi ve Telemetri -->
+    <div class="col-lg-5">
+      <div class="card-panel p-3 mb-3">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="fw-semibold text-info"><i class="bi bi-camera-video me-2"></i>Jest Sensörü</span>
-          <button id="toggleCamBtn" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size: 12px;">
-            <i class="bi bi-camera-video-off me-1"></i>Kamerayı Kapat
+          <span class="small fw-semibold text-secondary text-uppercase"><i class="bi bi-camera me-1"></i>Vision Feed</span>
+          <button id="toggleCamBtn" class="btn btn-sm btn-outline-light py-0 px-2" style="font-size: 11px;">
+            <i class="bi bi-pause-fill me-1"></i>Kamerayı Durdur
           </button>
         </div>
 
-        <div class="video-container mb-3 border border-secondary border-opacity-25">
+        <div class="video-viewport mb-3 border border-secondary border-opacity-25">
           <video id="webcam" playsinline autoplay muted></video>
           <canvas id="output_canvas"></canvas>
           <div id="camOverlay" class="position-absolute top-50 start-50 translate-middle text-secondary text-center d-none">
@@ -108,343 +116,190 @@
           </div>
         </div>
 
-        <div class="p-3 bg-dark bg-opacity-50 rounded-3 mb-3 border border-secondary border-opacity-25">
-          <div class="d-flex justify-content-between text-secondary small mb-1">
-            <span>Algılanan Jest:</span>
-            <span id="detectedGesture" class="text-info fw-bold">El Aranıyor...</span>
+        <!-- Anlık Jest & Metrik Göstergesi -->
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <div class="p-2 bg-dark bg-opacity-50 rounded border border-secondary border-opacity-25">
+              <span class="text-secondary d-block" style="font-size: 10px;">SINIFLANDIRILAN JEST</span>
+              <span id="detectedGesture" class="fw-bold text-info">Searching...</span>
+            </div>
           </div>
-          <div class="d-flex justify-content-between text-secondary small">
-            <span>Güvenilirlik / Durum:</span>
-            <span id="gestureConfidence" class="text-light">Sensör Aktif</span>
+          <div class="col-6">
+            <div class="p-2 bg-dark bg-opacity-50 rounded border border-secondary border-opacity-25">
+              <span class="text-secondary d-block" style="font-size: 10px;">PINCH MESAFESİ (PX)</span>
+              <span id="pinchDistance" class="fw-bold text-warning">0.00</span>
+            </div>
           </div>
         </div>
 
-        <!-- 5 Saniyelik Onay Çemberi -->
-        <div class="card-custom p-3 bg-dark bg-opacity-25 border border-secondary border-opacity-25">
-          <div class="d-flex align-items-center gap-3">
-            <div class="position-relative" style="width: 54px; height: 54px;">
-              <svg width="54" height="54">
-                <circle stroke="#1b2f61" stroke-width="4" fill="transparent" r="22" cx="27" cy="27"/>
-                <circle id="progressCircle" class="progress-ring-circle" stroke="#00f2a9" stroke-width="4" stroke-dasharray="138" stroke-dashoffset="138" fill="transparent" r="22" cx="27" cy="27"/>
-              </svg>
-              <i class="bi bi-hand-thumbs-up position-absolute top-50 start-50 translate-middle text-success small"></i>
-            </div>
-            <div>
-              <div class="fw-semibold small" id="confirmStatusText">Onay Bekleniyor</div>
-              <small class="text-secondary" style="font-size: 11px;">👍 Başparmağınızı kaldırıp 5 sn sabit tutun</small>
-            </div>
-            <div class="ms-auto fs-5 fw-bold text-success" id="timerCount">5.0s</div>
-          </div>
+        <!-- Landmark Ham Veri Akışı -->
+        <div class="mb-1 d-flex justify-content-between align-items-center">
+          <span class="text-secondary text-uppercase" style="font-size: 10px;">Landmark Telemetri (Tip Coordinates)</span>
+          <span class="text-secondary" style="font-size: 10px;">21 Keypoints</span>
         </div>
-      </div>
-
-      <!-- Kılavuz -->
-      <div class="card-custom p-3">
-        <h6 class="text-secondary small fw-bold text-uppercase mb-2">Jest Kılavuzu</h6>
-        <div class="row g-2 small text-secondary">
-          <div class="col-6"><span class="text-light">✋ Açık El:</span> Menüde İlerle</div>
-          <div class="col-6"><span class="text-light">☝️ İşaret Par.:</span> Önceki Menü</div>
-          <div class="col-6"><span class="text-light">👍 Başparmak:</span> 5 Sn Onayla</div>
-          <div class="col-6"><span class="text-light">✊ Yumruk:</span> İptal Et</div>
+        <div class="telemetry-code" id="telemetryLog">
+          Awaiting tracking vectors...
         </div>
       </div>
     </div>
 
-    <!-- Sağ Panel: Bankacılık Dashboard -->
-    <div class="col-lg-8">
-      <!-- Bakiye -->
-      <div class="card-custom p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <div class="text-secondary small">Kullanılabilir Toplam Bakiye</div>
-            <h2 class="display-6 fw-bold text-white my-1" id="balanceDisplay">48.250,00 <span class="fs-4 text-info">TL</span></h2>
-            <div class="badge bg-info bg-opacity-10 text-info mt-1"><i class="bi bi-shield-check me-1"></i>KVKK & BDDK Uyumlu Edge AI</div>
-          </div>
-          <button class="btn btn-outline-info btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#newTransferModal">
-            <i class="bi bi-plus-lg me-1"></i>Yeni Para Transferi
-          </button>
-        </div>
-      </div>
-
-      <!-- Bankacılık İşlemleri Kartları (Jestle Odaklanabilir) -->
-      <div class="mb-4">
+    <!-- Sağ Bölüm: Tarayıcı Etkileşim Deneyleri (Showcase) -->
+    <div class="col-lg-7">
+      
+      <!-- Modül 1: Jest ile Kart/Slayt Navigasyonu -->
+      <div class="card-panel p-3 p-md-4 mb-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <h6 class="m-0 fw-semibold text-secondary text-uppercase small">Bankacılık İşlem Seçenekleri</h6>
-          <span class="badge bg-secondary bg-opacity-25 text-info" id="currentFocusBadge">1. Seçenek Odakta</span>
+          <h6 class="m-0 fw-bold"><i class="bi bi-layers me-2 text-info"></i>Deney 1: Temassız Kart Gezgini</h6>
+          <span class="text-secondary small">✋ Açık El: İleri | ✊ Yumruk: Geri</span>
         </div>
 
-        <div class="row g-3" id="actionsList">
-          <div class="col-md-6 col-xl-3">
-            <div class="action-card active-focus h-100" data-index="0" data-title="Ev Kirası" data-amount="15000">
-              <div class="d-flex justify-content-between mb-2">
-                <span class="fs-4 text-primary"><i class="bi bi-house-door"></i></span>
-                <span class="badge bg-dark text-secondary small">Kira</span>
-              </div>
-              <div class="fw-semibold">Ev Kirası</div>
-              <small class="text-secondary d-block">Ahmet Güler</small>
-              <div class="text-info fw-bold mt-2">15.000 TL</div>
+        <div class="row g-3" id="cardsTrack">
+          <div class="col-4">
+            <div class="demo-card active p-3 text-center" data-index="0">
+              <div class="display-6 mb-2 text-info"><i class="bi bi-cpu"></i></div>
+              <div class="fw-bold small">Edge Engine</div>
+              <span class="text-secondary" style="font-size: 11px;">İstemci taraflı çıkarım</span>
             </div>
           </div>
-
-          <div class="col-md-6 col-xl-3">
-            <div class="action-card h-100" data-index="1" data-title="Kardeş Harçlığı" data-amount="2500">
-              <div class="d-flex justify-content-between mb-2">
-                <span class="fs-4 text-success"><i class="bi bi-person-heart"></i></span>
-                <span class="badge bg-dark text-secondary small">Aile</span>
-              </div>
-              <div class="fw-semibold">Kardeş Harçlığı</div>
-              <small class="text-secondary d-block">Zeynep Yılmaz</small>
-              <div class="text-success fw-bold mt-2">2.500 TL</div>
+          <div class="col-4">
+            <div class="demo-card p-3 text-center" data-index="1">
+              <div class="display-6 mb-2 text-primary"><i class="bi bi-vector-pen"></i></div>
+              <div class="fw-bold small">Geometric Math</div>
+              <span class="text-secondary" style="font-size: 11px;">Öklid mesafesi analizi</span>
             </div>
           </div>
-
-          <div class="col-md-6 col-xl-3">
-            <div class="action-card h-100" data-index="2" data-title="İnternet Faturası" data-amount="450">
-              <div class="d-flex justify-content-between mb-2">
-                <span class="fs-4 text-warning"><i class="bi bi-router"></i></span>
-                <span class="badge bg-dark text-secondary small">Fatura</span>
-              </div>
-              <div class="fw-semibold">İnternet Faturası</div>
-              <small class="text-secondary d-block">Superonline</small>
-              <div class="text-warning fw-bold mt-2">450 TL</div>
-            </div>
-          </div>
-
-          <div class="col-md-6 col-xl-3">
-            <div class="action-card h-100" data-index="3" data-title="Kredi Kartı Borcu" data-amount="3800">
-              <div class="d-flex justify-content-between mb-2">
-                <span class="fs-4 text-danger"><i class="bi bi-credit-card-2-front"></i></span>
-                <span class="badge bg-dark text-secondary small">Kart Borcu</span>
-              </div>
-              <div class="fw-semibold">Silent Platinum</div>
-              <small class="text-secondary d-block">Asgari Tutar</small>
-              <div class="text-danger fw-bold mt-2">3.800 TL</div>
+          <div class="col-4">
+            <div class="demo-card p-3 text-center" data-index="2">
+              <div class="display-6 mb-2 text-success"><i class="bi bi-shield-check"></i></div>
+              <div class="fw-bold small">Zero Data Leak</div>
+              <span class="text-secondary" style="font-size: 11px;">Görüntü sunucuya gitmez</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Son Hesap Hareketleri -->
-      <div class="card-custom p-3">
-        <h6 class="text-secondary small fw-bold text-uppercase mb-3">Son Hesap Hareketleri</h6>
-        <div class="table-responsive">
-          <table class="table table-dark table-borderless align-middle mb-0 small">
-            <thead>
-              <tr class="text-secondary border-bottom border-secondary border-opacity-25">
-                <th>İşlem / Alıcı</th>
-                <th>Tarih</th>
-                <th>Durum</th>
-                <th class="text-end">Tutar</th>
-              </tr>
-            </thead>
-            <tbody id="transactionLogs">
-              <tr>
-                <td><i class="bi bi-arrow-up-right text-danger me-2"></i>Market Alışverişi</td>
-                <td class="text-secondary">Bugün, 14:20</td>
-                <td><span class="badge bg-success bg-opacity-25 text-success">Başarılı</span></td>
-                <td class="text-end fw-semibold text-danger">-340,50 TL</td>
-              </tr>
-              <tr>
-                <td><i class="bi bi-arrow-down-left text-success me-2"></i>Maaş Yatırma</td>
-                <td class="text-secondary">Dün, 09:00</td>
-                <td><span class="badge bg-success bg-opacity-25 text-success">Başarılı</span></td>
-                <td class="text-end fw-semibold text-success">+48.000,00 TL</td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Modül 2: Parmak Mesafesi ile Slider Kontrolü (Pinch-to-Scale) -->
+      <div class="card-panel p-3 p-md-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h6 class="m-0 fw-bold"><i class="bi bi-sliders me-2 text-warning"></i>Deney 2: Havadaki Mesafe ile Değer Ayarlama (Pinch)</h6>
+          <span class="text-warning small" id="pinchPct">0%</span>
+        </div>
+        <p class="text-secondary small mb-3">Başparmak ile işaret parmağını birbirine yaklaştırıp uzaklaştırarak havadaki mesafeyle çubuğu kontrol edin.</p>
+        
+        <div class="progress bg-dark border border-secondary border-opacity-25" style="height: 18px;">
+          <div id="spatialSlider" class="progress-bar bg-warning" role="progressbar" style="width: 20%; transition: width 0.05s ease;"></div>
+        </div>
+      </div>
+
+      <!-- Modül 3: Tutma/Zaman Tabanlı Onay Kilidi -->
+      <div class="card-panel p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="m-0 fw-bold"><i class="bi bi-fingerprint me-2 text-success"></i>Deney 3: Zamana Bağlı Tetikleyici (Hold-to-Trigger)</h6>
+          <span class="text-secondary small">👍 Başparmak: 3 saniye sabit tut</span>
+        </div>
+
+        <div class="d-flex align-items-center gap-3 bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-25">
+          <div class="position-relative" style="width: 50px; height: 50px;">
+            <svg width="50" height="50">
+              <circle stroke="#1e293b" stroke-width="4" fill="transparent" r="20" cx="25" cy="25"/>
+              <circle id="progressCircle" class="progress-ring-circle" stroke="#00f2a9" stroke-width="4" stroke-dasharray="125" stroke-dashoffset="125" fill="transparent" r="20" cx="25" cy="25"/>
+            </svg>
+            <i class="bi bi-lock-fill position-absolute top-50 start-50 translate-middle text-secondary" id="lockIcon"></i>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold small" id="triggerStateText">Tetik Bekleniyor</div>
+            <div class="text-secondary" style="font-size: 11px;">Yanlış algılamaları önlemek için sabit eşik süresi uygulanır.</div>
+          </div>
+          <div class="fs-4 fw-bold text-success font-monospace" id="countdownTimer">3.0s</div>
         </div>
       </div>
 
     </div>
   </div>
 </div>
-
-<!-- Yeni Transfer Modalı (Manuel Giriş) -->
-<div class="modal fade" id="newTransferModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content card-custom text-white border border-secondary border-opacity-50">
-      <div class="modal-header border-secondary border-opacity-25">
-        <h5 class="modal-title fs-6"><i class="bi bi-send me-2"></i>Yeni Para Transferi</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label class="form-label small text-secondary">Alıcı Adı Soyadı</label>
-          <input type="text" id="manualName" class="form-control bg-dark text-white border-secondary" placeholder="Örn: Mehmet Demir">
-        </div>
-        <div class="mb-3">
-          <label class="form-label small text-secondary">IBAN Numarası</label>
-          <input type="text" id="manualIban" class="form-control bg-dark text-white border-secondary" placeholder="TR00 0000 0000...">
-        </div>
-        <div class="mb-3">
-          <label class="form-label small text-secondary">Gönderilecek Tutar (TL)</label>
-          <input type="number" id="manualAmount" class="form-control bg-dark text-white border-secondary" placeholder="500">
-        </div>
-      </div>
-      <div class="modal-footer border-secondary border-opacity-25">
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Vazgeç</button>
-        <button type="button" class="btn btn-info btn-sm px-3" id="submitManualTransfer">Hızlı Listeye Ekle</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Başarı Modal -->
-<div class="modal fade" id="receiptModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content card-custom text-white border border-info">
-      <div class="modal-body text-center p-4">
-        <div class="display-3 text-success mb-3"><i class="bi bi-check-circle-fill"></i></div>
-        <h4 class="fw-bold mb-1">İşlem Onaylandı!</h4>
-        <p class="text-secondary small mb-3">5 Saniyelik Biyometrik Jest Onayı Başarıyla Tamamlandı.</p>
-        <div class="bg-dark bg-opacity-50 p-3 rounded-3 mb-3 text-start small">
-          <div class="d-flex justify-content-between mb-1">
-            <span class="text-secondary">İşlem:</span>
-            <span id="receiptTitle" class="fw-semibold">-</span>
-          </div>
-          <div class="d-flex justify-content-between mb-1">
-            <span class="text-secondary">Tutar:</span>
-            <span id="receiptAmount" class="text-success fw-bold">-</span>
-          </div>
-          <div class="d-flex justify-content-between">
-            <span class="text-secondary">Tarih:</span>
-            <span id="receiptDate" class="text-secondary">-</span>
-          </div>
-        </div>
-        <button type="button" class="btn btn-info w-100 fw-semibold" data-bs-dismiss="modal">Kapat</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-  let currentBalance = 48250.00;
-  let focusedIndex = 0;
-  let actionCards = document.querySelectorAll('.action-card');
+  let activeCardIndex = 0;
+  const cards = document.querySelectorAll('.demo-card');
+  let lastNavTrigger = 0;
 
-  // Onay Süresi: 5 Saniye (5000 ms)
-  const REQUIRED_HOLD_TIME = 5000;
-  let gestureHoldStart = null;
-  let isProcessingTx = false;
-  let lastNavTime = 0;
+  // Onay kilidi ayarları
+  const HOLD_DURATION = 3000;
+  let holdStartTime = null;
+  const progressCircle = document.getElementById('progressCircle');
+  const circumference = 2 * Math.PI * 20; // ~125.6
+  const countdownTimer = document.getElementById('countdownTimer');
+  const triggerStateText = document.getElementById('triggerStateText');
+  const lockIcon = document.getElementById('lockIcon');
 
-  // Kamera ve MediaPipe Tanımları
+  // Video & MediaPipe değişkenleri
   const videoElement = document.getElementById('webcam');
   const canvasElement = document.getElementById('output_canvas');
   const canvasCtx = canvasElement.getContext('2d');
   const toggleCamBtn = document.getElementById('toggleCamBtn');
   const camOverlay = document.getElementById('camOverlay');
-  let cameraInstance = null;
-  let isCamActive = true;
+  let camera = null;
+  let isCameraOn = true;
 
-  // Progress Bar Değişkenleri
-  const progressCircle = document.getElementById('progressCircle');
-  const circumference = 2 * Math.PI * 22; // ~138.2
-  const timerCount = document.getElementById('timerCount');
-  const confirmStatusText = document.getElementById('confirmStatusText');
-  const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-
-  // Menü Odak Güncelleme
-  function updateFocus(newIndex) {
-    actionCards = document.querySelectorAll('.action-card');
-    if (newIndex < 0) newIndex = actionCards.length - 1;
-    if (newIndex >= actionCards.length) newIndex = 0;
-    
-    actionCards.forEach(c => c.classList.remove('active-focus'));
-    actionCards[newIndex].classList.add('active-focus');
-    focusedIndex = newIndex;
-    
-    document.getElementById('currentFocusBadge').innerText = `${newIndex + 1}. Seçenek Odakta`;
+  // Kart Değiştirme
+  function setCard(idx) {
+    if (idx < 0) idx = cards.length - 1;
+    if (idx >= cards.length) idx = 0;
+    cards.forEach(c => c.classList.remove('active'));
+    cards[idx].classList.add('active');
+    activeCardIndex = idx;
   }
 
-  // Parmak Durumlarını İnceleyen Algoritma (Strict Jest Kontrolü)
-  function evaluateGestures(landmarks) {
-    // Landmarks: 4=Thumb_Tip, 3=Thumb_IP, 2=Thumb_MCP
-    // 8=Index, 12=Middle, 16=Ring, 20=Pinky
-    const thumbTip = landmarks[4];
-    const thumbIp = landmarks[3];
-    const thumbMcp = landmarks[2];
+  // Öklid Mesafesi Hesabı (Pinch)
+  function calcDistance(p1, p2) {
+    return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+  }
 
+  // Landmark Analizi ve Jest Çıkarımı
+  function classifyGesture(landmarks) {
+    const thumbTip = landmarks[4], thumbIp = landmarks[3], thumbMcp = landmarks[2];
     const indexTip = landmarks[8], indexPip = landmarks[6];
     const middleTip = landmarks[12], middlePip = landmarks[10];
     const ringTip = landmarks[16], ringPip = landmarks[14];
     const pinkyTip = landmarks[20], pinkyPip = landmarks[18];
 
-    // Diğer parmaklar kapalı mı kontrolü (Y koordinatı eklemden büyükse aşağıda/kapalıdır)
     const isIndexClosed = indexTip.y > indexPip.y;
     const isMiddleClosed = middleTip.y > middlePip.y;
     const isRingClosed = ringTip.y > ringPip.y;
     const isPinkyClosed = pinkyTip.y > pinkyPip.y;
-    const allOthersClosed = isIndexClosed && isMiddleClosed && isRingClosed && isPinkyClosed;
+    const allFingersClosed = isIndexClosed && isMiddleClosed && isRingClosed && isPinkyClosed;
 
-    // Parmaklar açık mı?
     const isIndexOpen = indexTip.y < indexPip.y;
     const isMiddleOpen = middleTip.y < middlePip.y;
     const isRingOpen = ringTip.y < ringPip.y;
     const isPinkyOpen = pinkyTip.y < pinkyPip.y;
 
-    // 1. KESİN BAŞPARMAK (👍 Thumbs Up):
-    // Başparmak belirgin şekilde yukarıda olacak VE diğer 4 parmak kesinlikle kapalı olacak!
-    const isThumbUp = (thumbTip.y < thumbIp.y) && (thumbIp.y < thumbMcp.y) && allOthersClosed;
-    if (isThumbUp) return "THUMBS_UP";
+    // 1. Thumbs Up (Sadece başparmak açık, diğerleri kapalı)
+    if (thumbTip.y < thumbIp.y && thumbIp.y < thumbMcp.y && allFingersClosed) {
+      return "THUMBS_UP";
+    }
 
-    // 2. AÇIK EL (✋): Tüm parmaklar açık
-    if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) return "OPEN_PALM";
+    // 2. Open Palm (Tüm parmaklar açık)
+    if (isIndexOpen && isMiddleOpen && isRingOpen && isPinkyOpen) {
+      return "OPEN_PALM";
+    }
 
-    // 3. İŞARET PARMAĞI (☝️): Sadece işaret parmağı açık, diğerleri kapalı
-    if (isIndexOpen && isMiddleClosed && isRingClosed && isPinkyClosed) return "INDEX_FINGER";
+    // 3. Fist (Tüm parmaklar kapalı)
+    if (allFingersClosed) {
+      return "FIST";
+    }
 
-    // 4. YUMRUK (✊): Tüm parmaklar kapalı
-    if (allOthersClosed && thumbTip.y > thumbMcp.y) return "FIST";
-
-    return "UNKNOWN";
+    return "ACTIVE_TRACKING";
   }
 
-  // Onay Animasyonu & 5 Saniyelik Sayaç
-  function setProgress(percent, remainingSec) {
+  function setLockProgress(percent, remainingSec) {
     const offset = circumference - (percent / 100) * circumference;
     progressCircle.style.strokeDashoffset = offset;
-    timerCount.innerText = `${remainingSec.toFixed(1)}s`;
+    countdownTimer.innerText = `${remainingSec.toFixed(1)}s`;
   }
 
-  // İşlem Gerçekleştirme
-  function executeTransfer() {
-    isProcessingTx = true;
-    const activeCard = actionCards[focusedIndex];
-    const title = activeCard.getAttribute('data-title');
-    const amount = parseFloat(activeCard.getAttribute('data-amount'));
-
-    currentBalance -= amount;
-    document.getElementById('balanceDisplay').innerHTML = `${currentBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} <span class="fs-4 text-info">TL</span>`;
-
-    // Modal aç
-    document.getElementById('receiptTitle').innerText = title;
-    document.getElementById('receiptAmount').innerText = `-${amount.toLocaleString('tr-TR')} TL`;
-    document.getElementById('receiptDate').innerText = new Date().toLocaleTimeString('tr-TR');
-    receiptModal.show();
-
-    // Log tablosuna ekle
-    const tbody = document.getElementById('transactionLogs');
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><i class="bi bi-arrow-up-right text-info me-2"></i>${title} (Jest Onaylı)</td>
-      <td class="text-secondary">Şimdi</td>
-      <td><span class="badge bg-success bg-opacity-25 text-success">Başarılı</span></td>
-      <td class="text-end fw-semibold text-info">-${amount.toLocaleString('tr-TR')} TL</td>
-    `;
-    tbody.prepend(tr);
-
-    setTimeout(() => {
-      isProcessingTx = false;
-      setProgress(0, 5.0);
-    }, 2000);
-  }
-
-  // MediaPipe Sonuçları Döngüsü
   function onResults(results) {
-    if (!isCamActive) return;
+    if (!isCameraOn) return;
 
     canvasElement.width = videoElement.videoWidth;
     canvasElement.height = videoElement.videoHeight;
@@ -453,64 +308,79 @@
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       const landmarks = results.multiHandLandmarks[0];
-      
-      // Basit iskelet çizimi
-      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00d2ff', lineWidth: 3});
+
+      // İskelet Çizimi
+      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00f2fe', lineWidth: 2});
       drawLandmarks(canvasCtx, landmarks, {color: '#00f2a9', lineWidth: 1, radius: 3});
 
-      const gesture = evaluateGestures(landmarks);
+      // Jest Tespiti
+      const gesture = classifyGesture(landmarks);
       document.getElementById('detectedGesture').innerText = gesture;
       const now = Date.now();
 
-      // Menü Gezinme (Her jest arasında 800ms bekleme süresi koyar)
-      if (now - lastNavTime > 800) {
+      // Deney 1: Kart Değiştirme (Açık el / Yumruk)
+      if (now - lastNavTrigger > 700) {
         if (gesture === "OPEN_PALM") {
-          updateFocus(focusedIndex + 1);
-          lastNavTime = now;
-        } else if (gesture === "INDEX_FINGER") {
-          updateFocus(focusedIndex - 1);
-          lastNavTime = now;
+          setCard(activeCardIndex + 1);
+          lastNavTrigger = now;
         } else if (gesture === "FIST") {
-          // Yumruk yapıldığında onay iptal edilir
-          gestureHoldStart = null;
-          setProgress(0, 5.0);
-          confirmStatusText.innerText = "İptal Edildi";
+          setCard(activeCardIndex - 1);
+          lastNavTrigger = now;
         }
       }
 
-      // 5 Saniyelik Başparmak Onay Mekanizması
-      if (gesture === "THUMBS_UP" && !isProcessingTx) {
-        if (!gestureHoldStart) {
-          gestureHoldStart = now;
-        }
-        const elapsed = now - gestureHoldStart;
-        const progress = Math.min((elapsed / REQUIRED_HOLD_TIME) * 100, 100);
-        const remaining = Math.max((REQUIRED_HOLD_TIME - elapsed) / 1000, 0);
+      // Deney 2: Pinch Mesafesi ile Slider Kontrolü
+      const thumbTip = landmarks[4];
+      const indexTip = landmarks[8];
+      const dist = calcDistance(thumbTip, indexTip);
+      document.getElementById('pinchDistance').innerText = dist.toFixed(3);
 
-        setProgress(progress, remaining);
-        confirmStatusText.innerText = "Onaylanıyor...";
+      // Normalizasyon: 0.03 - 0.25 aralığını 0-100% yap
+      let pct = Math.round(((dist - 0.03) / (0.22 - 0.03)) * 100);
+      pct = Math.max(0, Math.min(100, pct));
+      document.getElementById('spatialSlider').style.width = `${pct}%`;
+      document.getElementById('pinchPct').innerText = `${pct}%`;
 
-        if (elapsed >= REQUIRED_HOLD_TIME) {
-          gestureHoldStart = null;
-          executeTransfer();
+      // Deney 3: Hold-to-Trigger (Zamana bağlı kilit)
+      if (gesture === "THUMBS_UP") {
+        if (!holdStartTime) holdStartTime = now;
+        const elapsed = now - holdStartTime;
+        const progress = Math.min((elapsed / HOLD_DURATION) * 100, 100);
+        const remaining = Math.max((HOLD_DURATION - elapsed) / 1000, 0);
+
+        setLockProgress(progress, remaining);
+        triggerStateText.innerText = "Doğrulanıyor...";
+
+        if (elapsed >= HOLD_DURATION) {
+          triggerStateText.innerText = "Kilit Açıldı! (Action Fired)";
+          lockIcon.className = "bi bi-unlock-fill position-absolute top-50 start-50 translate-middle text-success";
         }
       } else {
-        if (gesture !== "THUMBS_UP") {
-          gestureHoldStart = null;
-          setProgress(0, 5.0);
-          confirmStatusText.innerText = "Onay Bekleniyor";
-        }
+        holdStartTime = null;
+        setLockProgress(0, 3.0);
+        triggerStateText.innerText = "Tetik Bekleniyor";
+        lockIcon.className = "bi bi-lock-fill position-absolute top-50 start-50 translate-middle text-secondary";
       }
 
+      // Telemetri Log Çıktısı
+      document.getElementById('telemetryLog').innerHTML = `
+        Wrist: [${landmarks[0].x.toFixed(2)}, ${landmarks[0].y.toFixed(2)}]<br>
+        ThumbTip: [${thumbTip.x.toFixed(2)}, ${thumbTip.y.toFixed(2)}]<br>
+        IndexTip: [${indexTip.x.toFixed(2)}, ${indexTip.y.toFixed(2)}]<br>
+        MiddleTip: [${landmarks[12].x.toFixed(2)}, ${landmarks[12].y.toFixed(2)}]
+      `;
+
     } else {
-      document.getElementById('detectedGesture').innerText = "El Aranıyor...";
-      gestureHoldStart = null;
-      setProgress(0, 5.0);
+      document.getElementById('detectedGesture').innerText = "Searching...";
+      document.getElementById('telemetryLog').innerText = "No hand vector in frame.";
+      holdStartTime = null;
+      setLockProgress(0, 3.0);
     }
+
     canvasCtx.restore();
   }
 
-  // MediaPipe Başlatma
+  // MediaPipe Hands Yapılandırması
   const hands = new Hands({
     locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
   });
@@ -518,65 +388,42 @@
   hands.setOptions({
     maxNumHands: 1,
     modelComplexity: 1,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7
+    minDetectionConfidence: 0.65,
+    minTrackingConfidence: 0.65
   });
 
   hands.onResults(onResults);
 
-  cameraInstance = new Camera(videoElement, {
+  camera = new Camera(videoElement, {
     onFrame: async () => {
-      if (isCamActive) await hands.send({ image: videoElement });
+      if (isCameraOn) await hands.send({ image: videoElement });
     },
     width: 640,
     height: 480
   });
 
-  cameraInstance.start();
+  camera.start();
 
-  // Kamerayı Kapat / Aç Butonu Mantığı
+  // Kamera Aç / Kapat Butonu
   toggleCamBtn.addEventListener('click', () => {
-    isCamActive = !isCamActive;
-    if (!isCamActive) {
+    isCameraOn = !isCameraOn;
+    if (!isCameraOn) {
       if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(track => track.stop());
+        videoElement.srcObject.getTracks().forEach(t => t.stop());
       }
       canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
       camOverlay.classList.remove('d-none');
-      toggleCamBtn.innerHTML = '<i class="bi bi-camera-video me-1"></i>Kamerayı Aç';
-      document.getElementById('detectedGesture').innerText = "Kamera Kapalı";
+      toggleCamBtn.innerHTML = '<i class="bi bi-play-fill me-1"></i>Kamerayı Başlat';
+      document.getElementById('detectedGesture').innerText = "Paused";
+      document.getElementById('fpsBadge').innerText = "Standby";
+      document.getElementById('fpsBadge').className = "badge bg-secondary bg-opacity-25 text-secondary ms-1";
     } else {
       camOverlay.classList.add('d-none');
-      toggleCamBtn.innerHTML = '<i class="bi bi-camera-video-off me-1"></i>Kamerayı Kapat';
-      cameraInstance.start();
+      toggleCamBtn.innerHTML = '<i class="bi bi-pause-fill me-1"></i>Kamerayı Durdur';
+      document.getElementById('fpsBadge').innerText = "Active";
+      document.getElementById('fpsBadge').className = "badge bg-success bg-opacity-25 text-success ms-1";
+      camera.start();
     }
-  });
-
-  // Manuel Yeni Transfer Ekleme Butonu
-  document.getElementById('submitManualTransfer').addEventListener('click', () => {
-    const name = document.getElementById('manualName').value || 'Yeni Alıcı';
-    const amount = document.getElementById('manualAmount').value || '100';
-    
-    const container = document.getElementById('actionsList');
-    const newIndex = actionCards.length;
-    
-    const col = document.createElement('div');
-    col.className = 'col-md-6 col-xl-3';
-    col.innerHTML = `
-      <div class="action-card h-100" data-index="${newIndex}" data-title="${name}" data-amount="${amount}">
-        <div class="d-flex justify-content-between mb-2">
-          <span class="fs-4 text-info"><i class="bi bi-send-check"></i></span>
-          <span class="badge bg-dark text-secondary small">Manuel</span>
-        </div>
-        <div class="fw-semibold">${name}</div>
-        <small class="text-secondary d-block">IBAN Transferi</small>
-        <div class="text-info fw-bold mt-2">${parseFloat(amount).toLocaleString('tr-TR')} TL</div>
-      </div>
-    `;
-    container.appendChild(col);
-    
-    actionCards = document.querySelectorAll('.action-card');
-    bootstrap.Modal.getInstance(document.getElementById('newTransferModal')).hide();
   });
 </script>
 </body>
